@@ -9,7 +9,7 @@ import { map, take } from 'rxjs/operators';
   styleUrls: ['home.page.scss'],
 })
 export class HomePage {
-  message: string = 'Initial message';
+  message: string;
   message$: Observable<string>;
   browser: InAppBrowserObject;
   messageSubscription1: Subscription;
