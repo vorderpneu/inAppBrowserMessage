@@ -1,0 +1,10 @@
+{
+  "name": "inAppBrowserMessage",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular",
+  "hooks": {
+    "build:after": "./attach-source-maps.js"
+  }
+}
