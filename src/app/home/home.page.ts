@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy } from '@angular/core';
 import { InAppBrowser, InAppBrowserObject } from '@awesome-cordova-plugins/in-app-browser/ngx';
 import { interval, Observable, Subscription, timer } from 'rxjs';
 import { map, take } from 'rxjs/operators';
@@ -8,25 +8,24 @@ import { map, take } from 'rxjs/operators';
   templateUrl: 'home.page.html',
   styleUrls: ['home.page.scss'],
 })
-export class HomePage {
+export class HomePage implements OnDestroy {
   message: string;
   message$: Observable<string>;
   browser: InAppBrowserObject;
-  messageSubscription1: Subscription;
-  messageSubscription2: Subscription;
+  messageSubscription: Subscription;
   loadStopSubscription: Subscription;
   exitSubscription: Subscription;
   countDownSub: Subscription;
   timerSub: Subscription;
 
-  constructor(private iab: InAppBrowser, private ref: ChangeDetectorRef)  {}
+  constructor(private iab: InAppBrowser, private ref: ChangeDetectorRef) {}
 
-  public openIab(): void {
-    this.browser = this.iab.create('https://vorderpneu.github.io/iab_content/iab.html', '_blank');
+  public openIabWithIabToAppCommunication(): void {
+    this.browser = this.iab.create('https://vorderpneu.github.io/iab_content/iab_one_way.html', '_blank');
 
     //subscribe to webkit.messageHandlers.cordova_iab.postMessage
     this.message$ = this.browser.on('message').pipe(map((event) => event.data.message));
-    this.messageSubscription1 = this.message$.subscribe((message) => {
+    this.messageSubscription = this.message$.subscribe((message) => {
       console.log(`message from IAB: ${message}`);
       this.message = message;
       this.ref.detectChanges();
@@ -49,42 +48,62 @@ export class HomePage {
           '}'
       });
 
-      this.messageSubscription2 = this.message$.subscribe((message) => {
-        console.log('got message from IAB and will send it back as to IAB')
-        if (message) this.browser.executeScript({code: `document.getElementById('message').innerHTML = '<p>Message IAB -> App -> IAB: ${message}</br>'`});
-      })
-
-
-      //Show countown in IAB and close IAB when count down is over
-      const oneSec = 1000;
-      const time = 500;
-      const timerInterval$ = interval(oneSec);
-      const timer$ = timer(time * oneSec);
-      const countDown$ = timerInterval$.pipe(take(time));
-
-      this.countDownSub = countDown$.subscribe(val => {
-          console.log(`send time left to IAB: ${time - val}`);
-          this.updateCountdownElement(`${time - val}`);
-        }
-      );
-      this.timerSub = timer$.subscribe(val => {
-        console.log(`send 'time is up!' to IAB and close IAB`);
-        this.updateCountdownElement('time is up!');
-        setTimeout(() => this.browser.close(), 3 * oneSec);
+      this.exitSubscription = this.browser.on('exit').subscribe(() => {
+        this.messageSubscription.unsubscribe();
+        this.loadStopSubscription.unsubscribe();
       });
-    });
-
-    this.exitSubscription = this.browser.on('exit').subscribe(() => {
-      this.messageSubscription1.unsubscribe();
-      this.messageSubscription2.unsubscribe();
-      this.loadStopSubscription.unsubscribe();
-      this.exitSubscription.unsubscribe();
-      this.countDownSub.unsubscribe();
-      this.timerSub.unsubscribe();
     });
   };
 
+  public openIabWithTwoWayCommunication(): void {
+    this.browser = this.iab.create('https://vorderpneu.github.io/iab_content/iab_two_way.html', '_blank');
+    //Show countown in IAB and close IAB when count down is over
+    this.initCountdown();
+
+    this.browser.executeScript({file: 'eventListeners.js'});
+
+    this.message$ = this.browser.on('message').pipe(map((event) => event.data.message));
+
+    this.messageSubscription = this.message$.subscribe((message) => {
+      console.log(`message from IAB: ${message}`);
+      if (message === 'resetTimer') {
+        this.countDownSub.unsubscribe();
+        this.timerSub.unsubscribe();
+        this.updateCountdownElement('timer has been reset!');
+        this.initCountdown();
+      }
+    });
+
+    this.exitSubscription = this.browser.on('exit').subscribe(() => {
+      this.countDownSub.unsubscribe();
+      this.timerSub.unsubscribe();
+    });
+  }
+
+  public initCountdown() {
+    const oneSec = 1000;
+    const time = 20;
+    const timerInterval$ = interval(oneSec);
+    const timer$ = timer(time * oneSec);
+    const countDown$ = timerInterval$.pipe(take(time));
+
+    this.countDownSub = countDown$.subscribe(val => {
+        console.log(`send time left to IAB: ${time - val}`);
+        this.updateCountdownElement(`${time - val}`);
+      }
+    );
+    this.timerSub = timer$.subscribe(val => {
+      console.log(`send 'time is up!' to IAB and close IAB`);
+      this.updateCountdownElement('time is up!');
+      setTimeout(() => this.browser.close(), 3 * oneSec);
+    });
+  }
+
   public updateCountdownElement(msg: string) {
-    this.browser.executeScript({code: `document.getElementById('countdown').innerHTML = '<p>${msg}</p>'`});
+    this.browser.executeScript({code: `console.log('timer: ${msg}'); document.getElementById('countdown').innerHTML = '<p>${msg}</p>'`});
+  }
+
+  ngOnDestroy() {
+    this.exitSubscription.unsubscribe();
   }
 }

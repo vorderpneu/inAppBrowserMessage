@@ -8,7 +8,8 @@
 
 <ion-content [fullscreen]="true">
   <div id="container">
-    <ion-button (click)="openIab()">open IAB</ion-button>
+    <ion-button (click)="openIabWithIabToAppCommunication()">open IAB - one way</ion-button>
+    <ion-button (click)="openIabWithTwoWayCommunication()">open IAB - two way </ion-button>
     <ion-item-divider></ion-item-divider>
     <ion-item>
       <ion-label>Message:</ion-label>
