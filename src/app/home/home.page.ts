@@ -82,7 +82,7 @@ export class HomePage implements OnDestroy {
 
   public initCountdown() {
     const oneSec = 1000;
-    const time = 20;
+    const time = 5000;
     const timerInterval$ = interval(oneSec);
     const timer$ = timer(time * oneSec);
     const countDown$ = timerInterval$.pipe(take(time));
@@ -101,6 +101,7 @@ export class HomePage implements OnDestroy {
 
   public updateCountdownElement(msg: string) {
     this.browser.executeScript({code: `console.log('timer: ${msg}'); document.getElementById('countdown').innerHTML = '<p>${msg}</p>'`});
+    this.browser.executeScript({file: `script_with_param.js?param=${msg}`})
   }
 
   ngOnDestroy() {
